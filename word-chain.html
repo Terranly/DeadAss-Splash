@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>接龙游戏</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #21252B;
+      color: #F2F3F5;
+      font-family: 'Microsoft YaHei', Arial, Helvetica, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 30px 16px;
+    }
+
+    h1 {
+      font-size: 2rem;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+      color: #61AFEF;
+    }
+
+    .subtitle {
+      font-size: 0.85rem;
+      color: #9a9b9b;
+      margin-bottom: 28px;
+      letter-spacing: 1px;
+    }
+
+    /* ── score bar ── */
+    .score-bar {
+      display: flex;
+      gap: 32px;
+      margin-bottom: 22px;
+    }
+
+    .score-item {
+      text-align: center;
+    }
+
+    .score-label {
+      font-size: 0.72rem;
+      color: #9a9b9b;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .score-value {
+      font-size: 1.6rem;
+      font-weight: bold;
+      color: #E5C07B;
+    }
+
+    /* ── chain display ── */
+    .chain-box {
+      background: #282C34;
+      border: 1px solid #3E4451;
+      border-radius: 6px;
+      width: 100%;
+      max-width: 600px;
+      min-height: 140px;
+      max-height: 260px;
+      overflow-y: auto;
+      padding: 12px 14px;
+      margin-bottom: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      align-content: flex-start;
+      gap: 8px;
+    }
+
+    .chain-word {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 1.05rem;
+    }
+
+    .chain-word .word-text {
+      background: #3E4451;
+      border-radius: 4px;
+      padding: 3px 9px;
+      white-space: nowrap;
+    }
+
+    .chain-word.player .word-text { border-left: 3px solid #98C379; }
+    .chain-word.computer .word-text { border-left: 3px solid #E06C75; }
+    .chain-word.start-word .word-text { border-left: 3px solid #61AFEF; }
+
+    .chain-arrow { color: #9a9b9b; font-size: 0.8rem; }
+
+    /* ── hint ── */
+    .hint-bar {
+      font-size: 0.85rem;
+      color: #9a9b9b;
+      margin-bottom: 14px;
+      min-height: 20px;
+    }
+
+    .hint-bar .current-tail {
+      color: #E5C07B;
+      font-weight: bold;
+      font-size: 1rem;
+    }
+
+    /* ── input row ── */
+    .input-row {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+      max-width: 600px;
+      margin-bottom: 12px;
+    }
+
+    .input-row input {
+      flex: 1;
+      background: #282C34;
+      border: 1px solid #3E4451;
+      border-radius: 4px;
+      color: #F2F3F5;
+      font-size: 1.1rem;
+      padding: 0 12px;
+      height: 38px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .input-row input:focus { border-color: #61AFEF; }
+
+    .input-row input.error { border-color: #E06C75; animation: shake 0.3s; }
+
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      25% { transform: translateX(-6px); }
+      75% { transform: translateX(6px); }
+    }
+
+    .btn {
+      height: 38px;
+      padding: 0 18px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: bold;
+      letter-spacing: 1px;
+      transition: opacity 0.15s;
+    }
+
+    .btn:hover { opacity: 0.85; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-submit { background: #61AFEF; color: #282C34; }
+    .btn-restart { background: #3E4451; color: #F2F3F5; }
+
+    /* ── feedback message ── */
+    .msg {
+      font-size: 0.85rem;
+      min-height: 20px;
+      margin-bottom: 16px;
+      color: #E06C75;
+    }
+
+    .msg.ok { color: #98C379; }
+
+    /* ── game over overlay ── */
+    .overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(33,37,43,0.88);
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .overlay.show { display: flex; }
+
+    .overlay-card {
+      background: #282C34;
+      border: 1px solid #3E4451;
+      border-radius: 8px;
+      padding: 36px 48px;
+      text-align: center;
+      max-width: 340px;
+    }
+
+    .overlay-card h2 {
+      font-size: 1.6rem;
+      margin-bottom: 10px;
+      color: #E5C07B;
+    }
+
+    .overlay-card p {
+      color: #9a9b9b;
+      margin-bottom: 24px;
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+
+    /* ── legend ── */
+    .legend {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 20px;
+      font-size: 0.78rem;
+      color: #9a9b9b;
+    }
+
+    .legend-dot {
+      display: inline-block;
+      width: 10px; height: 10px;
+      border-radius: 2px;
+      margin-right: 5px;
+    }
+
+    .legend-dot.player { background: #98C379; }
+    .legend-dot.computer { background: #E06C75; }
+    .legend-dot.start { background: #61AFEF; }
+  </style>
+</head>
+<body>
+
+  <h1>接龙游戏</h1>
+  <p class="subtitle">Word Chain Game — 每个词必须以上一个词的最后一个字开头</p>
+
+  <div class="score-bar">
+    <div class="score-item">
+      <div class="score-label">你的得分</div>
+      <div class="score-value" id="playerScore">0</div>
+    </div>
+    <div class="score-item">
+      <div class="score-label">链长</div>
+      <div class="score-value" id="chainLen">1</div>
+    </div>
+    <div class="score-item">
+      <div class="score-label">电脑得分</div>
+      <div class="score-value" id="compScore">0</div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><span class="legend-dot start"></span>起始词</span>
+    <span><span class="legend-dot player"></span>你</span>
+    <span><span class="legend-dot computer"></span>电脑</span>
+  </div>
+
+  <div class="chain-box" id="chainBox"></div>
+
+  <div class="hint-bar" id="hintBar"></div>
+
+  <div class="input-row">
+    <input type="text" id="wordInput" placeholder="输入以 「？」 开头的词…" maxlength="8" autocomplete="off" />
+    <button class="btn btn-submit" id="submitBtn">确认</button>
+    <button class="btn btn-restart" id="restartBtn">重新开始</button>
+  </div>
+
+  <div class="msg" id="msg"></div>
+
+  <!-- Game-over overlay -->
+  <div class="overlay" id="overlay">
+    <div class="overlay-card">
+      <h2 id="overlayTitle">游戏结束</h2>
+      <p id="overlayMsg"></p>
+      <button class="btn btn-submit" id="overlayRestartBtn">再玩一次</button>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    'use strict';
+
+    // ── Word dictionary ──────────────────────────────────────────────────────
+    // Format: [word, ...], the computer also draws from this list.
+    // Each subsequent word must begin with the last character of the previous.
+    const WORDS = [
+      // 动物
+      '猫咪','咪咪','棉花糖','糖果','果汁','汁液','液体','体操','操场','场地',
+      '地图','图书','书包','包子','子弹','弹琴','琴声','声音','音乐','乐器',
+      '器官','官员','员工','工厂','厂房','房子','子女','女儿','儿子','子孙',
+      '孙子','子弟','弟弟','弟兄','兄弟','弟妹','妹妹','妹夫','夫妻','妻子',
+      '子孙','孙女','女生','生命','命运','运气','气球','球场','场合','合同',
+      '同学','学校','校长','长大','大学','学生','生日','日期','期待','待遇',
+      '遇见','见面','面条','条件','件事','事情','情节','节日','日记','记者',
+      '者说','说话','话语','语录','录像','像样','样式','式样','样本','本来',
+      '来说','说明','明确','确认','认真','真实','实际','际遇','遇合','合适',
+      '适合','合理','理由','由于','于是','是否','否则','则否','否定','定义',
+      '义气','气功','功能','能源','源泉','泉水','水流','水果','果园','园丁','丁香','香水','水晶','晶体','体力',
+      '力量','量大','大方','方向','向前','前进','进步','步骤','骤降','降低',
+      '低调','调查','查看','看书','书法','法律','律师','师生','生活','活动',
+      '动物','物理','理解','解释','释放','放假','假期','期间','间隔','隔壁',
+      '壁纸','纸张','张开','开心','心情','情感','感觉','觉得','得到','到达',
+      '达到','到来','来自','自由','由来','来往','往来','来年','年底','底部',
+      '部分','分析','析出','出发','发现','现实','实力','力气','气氛','氛围',
+      '围巾','巾帼','帼英','英雄','雄鹰','鹰击','击打','打球','球迷','迷路',
+      '路线','线索','索取','取得','得分','分数','数字','字母','母亲','亲人',
+      '人心','心灵','灵魂','魂灵','灵气','气象','象形','形状','状态','态度',
+      '度过','过来','来得','得知','知道','道理','理想','想法','法则','则是',
+      '是非','非常','常见','见识','识别','别人','人生','生意','意思','思考',
+      '考试','试验','验证','证明','明白','白色','色彩','彩虹','虹桥','桥梁',
+      '梁上','上面','面对','对面','面色','色泽','泽国','国家','家庭','庭院',
+      '院子','子粒','粒子','子集','集合','合计','计划','划船','船长','长途',
+      '途中','中心','心血','血液','液化','化学','学习','习惯','惯用','用法',
+      '法官','官方','方式','式样','样品','品质','质量','量力','力学','学者',
+      '者也','也许','许多','多少','少数','数量','量器','器具','具体','体制',
+      '制度','度假','假设','设计','计算','算法','法语','语言','言论','论文',
+      '文化','化工','工程','程序','序号','号码','码头','头脑','脑子','子时',
+      '时间','间歇','歇息','息肉','肉丸','丸子','时代','代价','价值',
+      '值得','得意','意志','志气','气概','概念','念书','书签','签名','名字',
+      '字典','典型','型号','号手','手术','术语','语法','法式','式子',
+      '集体','体育','育人','人才','才能','能力','力行','行动','动作','作品',
+      '品牌','牌子','子孙','孙悟空','空气','气温','温度','度量','量产','产品',
+      '品格','格局','局势','势力','力道','道路','路途','途径','径直','直接',
+      '接触','触动','动心','心理','理科','科学','学问','问题','题目','目标',
+      '标准','准确','确定','定义','义务','务必','必须','须知','知名','名人',
+      '人物','物品','品位','位置','置换','换句','句子','子音','音调','调节',
+      '节奏','奏乐','乐章','章节','节目','目光','光明','明天','天气','气候',
+      '候鸟','鸟语','语气','气息','息事','事业','业绩','绩效','效率','率先',
+      '先后','后来','来临','临时','时光','光彩','彩色','色调','调和','和平',
+      '平静','静心','心声','声调','调味','味道','道德','德行','行为','为人',
+      '人间','间接','接受','受益','益处','处理','理论','论点','点心','心态',
+    ];
+
+    // Build quick lookup map: firstChar -> [words starting with that char]
+    function buildIndex(list) {
+      const idx = {};
+      for (const w of list) {
+        const ch = w[0];
+        if (!idx[ch]) idx[ch] = [];
+        idx[ch].push(w);
+      }
+      return idx;
+    }
+
+    // ── Game state ────────────────────────────────────────────────────────────
+    let chain = [];          // [{word, owner}]
+    let usedWords = new Set();
+    let playerScore = 0;
+    let compScore = 0;
+    let gameOver = false;
+
+    const wordIndex = buildIndex(WORDS);
+
+    // ── DOM refs ──────────────────────────────────────────────────────────────
+    const chainBox      = document.getElementById('chainBox');
+    const hintBar       = document.getElementById('hintBar');
+    const wordInput     = document.getElementById('wordInput');
+    const submitBtn     = document.getElementById('submitBtn');
+    const restartBtn    = document.getElementById('restartBtn');
+    const msgEl         = document.getElementById('msg');
+    const playerScoreEl = document.getElementById('playerScore');
+    const compScoreEl   = document.getElementById('compScore');
+    const chainLenEl    = document.getElementById('chainLen');
+    const overlay       = document.getElementById('overlay');
+    const overlayTitle  = document.getElementById('overlayTitle');
+    const overlayMsg    = document.getElementById('overlayMsg');
+    const overlayRestart= document.getElementById('overlayRestartBtn');
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    function lastChar() {
+      if (chain.length === 0) return '';
+      return chain[chain.length - 1].word.slice(-1);
+    }
+
+    function updateHint() {
+      const ch = lastChar();
+      if (!ch) return;
+      hintBar.innerHTML = `请输入以 <span class="current-tail">「${ch}」</span> 开头的词`;
+      wordInput.placeholder = `输入以 「${ch}」 开头的词…`;
+    }
+
+    function updateScores() {
+      playerScoreEl.textContent = playerScore;
+      compScoreEl.textContent   = compScore;
+      chainLenEl.textContent    = chain.length;
+    }
+
+    function renderChain() {
+      chainBox.innerHTML = '';
+      chain.forEach((entry, i) => {
+        if (i > 0) {
+          const arrow = document.createElement('span');
+          arrow.className = 'chain-arrow';
+          arrow.textContent = '→';
+          chainBox.appendChild(arrow);
+        }
+        const el = document.createElement('span');
+        el.className = `chain-word ${entry.owner}`;
+        el.innerHTML = `<span class="word-text">${entry.word}</span>`;
+        chainBox.appendChild(el);
+      });
+      // scroll to bottom
+      chainBox.scrollTop = chainBox.scrollHeight;
+    }
+
+    function setMsg(text, ok = false) {
+      msgEl.textContent = text;
+      msgEl.className = ok ? 'msg ok' : 'msg';
+    }
+
+    function shakeInput() {
+      wordInput.classList.remove('error');
+      // trigger reflow so the CSS animation restarts
+      const _reflow = wordInput.offsetWidth; // eslint-disable-line no-unused-vars
+      wordInput.classList.add('error');
+    }
+
+    // ── Computer AI ───────────────────────────────────────────────────────────
+    function computerTurn() {
+      const ch = lastChar();
+      const candidates = (wordIndex[ch] || []).filter(w => !usedWords.has(w));
+      if (candidates.length === 0) {
+        endGame('你赢了！', `电脑无法接龙！\n你的得分：${playerScore}，链长：${chain.length}`);
+        return;
+      }
+      const word = candidates[Math.floor(Math.random() * candidates.length)];
+      chain.push({ word, owner: 'computer' });
+      usedWords.add(word);
+      compScore++;
+      renderChain();
+      updateScores();
+      updateHint();
+      setMsg(`电脑接了「${word}」`, true);
+      wordInput.disabled = false;
+      submitBtn.disabled = false;
+      wordInput.focus();
+    }
+
+    // ── Game flow ─────────────────────────────────────────────────────────────
+    function startGame() {
+      chain = [];
+      usedWords = new Set();
+      playerScore = 0;
+      compScore = 0;
+      gameOver = false;
+      overlay.classList.remove('show');
+      wordInput.disabled = false;
+      submitBtn.disabled = false;
+      setMsg('');
+
+      // Pick random start word
+      const startWord = WORDS[Math.floor(Math.random() * WORDS.length)];
+      chain.push({ word: startWord, owner: 'start-word' });
+      usedWords.add(startWord);
+
+      renderChain();
+      updateScores();
+      updateHint();
+      wordInput.value = '';
+      wordInput.focus();
+    }
+
+    function endGame(title, body) {
+      gameOver = true;
+      wordInput.disabled = true;
+      submitBtn.disabled = true;
+      overlayTitle.textContent = title;
+      overlayMsg.textContent = body;
+      overlay.classList.add('show');
+    }
+
+    function handleSubmit() {
+      if (gameOver) return;
+      const word = wordInput.value.trim();
+      if (!word) return;
+
+      const needed = lastChar();
+
+      if (word[0] !== needed) {
+        setMsg(`错误：词必须以「${needed}」开头`);
+        shakeInput();
+        return;
+      }
+
+      if (usedWords.has(word)) {
+        setMsg(`「${word}」已经用过了，换一个吧！`);
+        shakeInput();
+        return;
+      }
+
+      if (!WORDS.includes(word)) {
+        setMsg(`「${word}」不在词库中，换一个吧！`);
+        shakeInput();
+        return;
+      }
+
+      // Valid player move
+      chain.push({ word, owner: 'player' });
+      usedWords.add(word);
+      playerScore++;
+      wordInput.value = '';
+      renderChain();
+      updateScores();
+      setMsg(`「${word}」接龙成功！`, true);
+
+      // Check if computer can respond
+      const ch = word.slice(-1);
+      const candidates = (wordIndex[ch] || []).filter(w => !usedWords.has(w));
+      if (candidates.length === 0) {
+        endGame('你赢了！', `电脑无法接龙！\n你的得分：${playerScore}，链长：${chain.length}`);
+        return;
+      }
+
+      // Disable input while "computer thinks"
+      wordInput.disabled = true;
+      submitBtn.disabled = true;
+      updateHint();
+      setTimeout(computerTurn, 600);
+    }
+
+    // ── Events ────────────────────────────────────────────────────────────────
+    submitBtn.addEventListener('click', handleSubmit);
+    wordInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') handleSubmit();
+    });
+    restartBtn.addEventListener('click', startGame);
+    overlayRestart.addEventListener('click', startGame);
+
+    // ── Boot ──────────────────────────────────────────────────────────────────
+    startGame();
+  })();
+  </script>
+</body>
+</html>
